@@ -15,9 +15,8 @@ projects, Next, wait for new releases of those upstream project versions to be p
 by your chosen Linux distribution provider before using them for any production
 use case.
 
-## Repo Layout
-
-* `tdx-kvm` - Contains an mbox file with host side TDX patches for KVM. This can be applied using:
+## Host setup for device passthrough
+* This guide assume the host machine is already setup with [wiki](https://github.com/canonical/tdx.git)
   ```
   mkdir ~/nvidia_setup
   git config --global user.email youremail@yourdomain.com
@@ -30,7 +29,13 @@ use case.
   cp ../devicepassthrough/canonical_passthrough.patch .
   git apply canonical_passthrough.patch
   cd ..
+```
+* `tdx-linux` - Contains patch for kvm and qemu:
+```
   git clone -b device-passthrough https://github.com/intel/tdx-linux.git
+```
+* `tdx-kvm` - Contains an mbox file with host side TDX patches for KVM. This can be applied using:
+```
   git clone -b kvm-coco-queue-20240512 https://git.kernel.org/pub/scm/linux/kernel/git/vishal/kvm.git
   cd ~/nvidia_setup/kvm
   cp -rf ../tdx-linux/tdx-kvm .
@@ -46,6 +51,7 @@ example,
 
 * `tdx-qemu` - Contains an mbox file with TDX patches for QEMU. This can be applied using:
   ```
+  cd ~/nvidia_setup
   git clone https://gitlab.com/qemu-project/qemu
   cd qemu
   git checkout -b rc0 v9.1.0-rc0
