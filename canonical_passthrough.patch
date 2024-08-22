@@ -1,0 +1,124 @@
+diff --git a/guest-tools/run_td.sh b/guest-tools/run_td.sh
+index a8c6131..5f5b7b4 100755
+--- a/guest-tools/run_td.sh
++++ b/guest-tools/run_td.sh
+@@ -6,33 +6,68 @@ cleanup() {
+ 
+     PID_TD=$(cat /tmp/tdx-demo-td-pid.pid 2> /dev/null)
+ 
+-    [ ! -z "$PID_TD" ] && echo "Cleanup, kill TD vm PID: ${PID_TD}" && kill -TERM ${PID_TD} &> /dev/null
+-    sleep 3
++    [ ! -z "$PID_TD" ] && echo "Cleanup, kill TD with PID: ${PID_TD}" && kill -TERM ${PID_TD} &> /dev/null
++    sleep 10
++}
++TD_IMG=${TD_IMG:-${PWD}/image/tdx-guest-ubuntu-24.04-generic.qcow2}
++TDVF_FIRMWARE=/usr/share/ovmf/OVMF.fd
++DPT=false
++process_args() {
++    while getopts ":hd" option; do
++        case "$option" in
++	    d) DPT=true;;
++            h) usage
++               exit 0
++               ;;
++            *)
++               echo "Invalid option '-$OPTARG'"
++               usage
++               exit 1
++               ;;
++        esac
++    done
++}
++
++usage() {
++    cat << EOM
++Usage: $(basename "$0") [OPTION]...
++  -d                        Device Passthrough
++  -h                        Show this help
++EOM
+ }
+ 
+ cleanup
++process_args "$@"
++
++
+ if [ "$1" = "clean" ]; then
+     exit 0
+ fi
+ 
+-TD_IMG=${TD_IMG:-${PWD}/image/tdx-guest-ubuntu-24.04-generic.qcow2}
+-TDVF_FIRMWARE=/usr/share/ovmf/OVMF.fd
+-
+ if ! groups | grep -qw "kvm"; then
+     echo "Please add user $USER to kvm group to run this script (usermod -aG kvm $USER and then log in again)."
+     exit 1
+ fi
++if [[ ${DPT} == true ]]; then
++    MEMORY=128
++    DEVICE_PASS="-object iommufd,id=iommufd0 \
++	        -device pcie-root-port,id=pci.1,bus=pcie.0 \
++                -device vfio-pci,host=38:00.0,bus=pci.1,iommufd=iommufd0 -fw_cfg name=opt/ovmf/X-PciMmio64,string=262144 \
++		-pidfile /tmp/tdx-demo-td-pid.pid"
+ 
+-set -e
+-
++else
++   MEMORY=2
++   DEVICE_PASS="-pidfile /tmp/tdx-demo-td-pid.pid"
++fi
+ ###################### RUN VM WITH TDX SUPPORT ##################################
+ SSH_PORT=10022
+ PROCESS_NAME=td
++LOGFILE='/tmp/tdx-guest-td.log'
+ # approach 1 : talk to QGS directly
+ QUOTE_ARGS="-device vhost-vsock-pci,guest-cid=3"
+-qemu-system-x86_64 -D /tmp/tdx-guest-td.log \
++qemu-system-x86_64 -D $LOGFILE \
+ 		   -accel kvm \
+-		   -m 2G -smp 16 \
++		   -m ${MEMORY}G -smp 16 \
+ 		   -name ${PROCESS_NAME},process=${PROCESS_NAME},debug-threads=on \
+ 		   -cpu host \
+ 		   -object tdx-guest,id=tdx \
+@@ -44,8 +79,14 @@ qemu-system-x86_64 -D /tmp/tdx-guest-td.log \
+ 		   -drive file=${TD_IMG},if=none,id=virtio-disk0 \
+ 		   -device virtio-blk-pci,drive=virtio-disk0 \
+ 		   ${QUOTE_ARGS} \
+-		   -pidfile /tmp/tdx-demo-td-pid.pid
++		   ${DEVICE_PASS}
++
++ret=$?
++if [ $ret -ne 0 ]; then
++	echo "Error: Failed to create TD VM. Please check logfile \"$LOGFILE\" for more information."
++	exit $ret
++fi
+ 
+ PID_TD=$(cat /tmp/tdx-demo-td-pid.pid)
+ 
+-echo "TD VM, PID: ${PID_TD}, SSH : ssh -p 10022 root@localhost"
++echo "TD, PID: ${PID_TD}, SSH : ssh -p 10022 root@localhost"
+diff --git a/setup-tdx-common b/setup-tdx-common
+index bf653c6..82bcae1 100644
+--- a/setup-tdx-common
++++ b/setup-tdx-common
+@@ -69,3 +69,7 @@ grub_set_kernel() {
+     fi
+     grub_switch_kernel "${KERNEL_RELEASE}"
+ }
++grub_set_kernel_args(){
++   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="[^"]*/& clearcpuid=mtrr/' /etc/default/grub.d/50-cloudimg-settings.cfg
++   update-grub
++}
+diff --git a/setup-tdx-guest.sh b/setup-tdx-guest.sh
+index 13f62fd..35132f2 100755
+--- a/setup-tdx-guest.sh
++++ b/setup-tdx-guest.sh
+@@ -49,7 +49,7 @@ fi
+ KERNEL_RELEASE=$(get_kernel_version "$KERNEL_TYPE")
+ # select the right kernel for next boot
+ grub_set_kernel
+-
++grub_set_kernel_args
+ # install modules-extra for generic kernel because the tdx-guest module
+ # is still in modules-extra only
+ # NB: grub_set_kernel updates kernel release that will be used, just check if it is generic

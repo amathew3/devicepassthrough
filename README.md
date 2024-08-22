@@ -23,7 +23,13 @@ use case.
   git config --global user.email youremail@yourdomain.com
   git config --global user.name "Your Name"
   cd ~/nvidia_setup
+  git clone https://github.com/amathew3/devicepassthrough.git
   git clone https://github.com/canonical/tdx.git
+  cd tdx/
+  git checkout -b tag2.0 2.0
+  cp ../devicepassthrough/canonical_passthrough.patch .
+  git apply canonical_passthrough.patch
+  cd ..
   git clone -b device-passthrough https://github.com/intel/tdx-linux.git
   git clone -b kvm-coco-queue-20240512 https://git.kernel.org/pub/scm/linux/kernel/git/vishal/kvm.git
   cd ~/nvidia_setup/kvm
