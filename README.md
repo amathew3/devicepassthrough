@@ -29,13 +29,16 @@ use case.
   cp ../devicepassthrough/canonical_passthrough.patch .
   git apply canonical_passthrough.patch
   cd ..
-```
+  ```
 * `tdx-linux` - Contains patch for kvm and qemu:
+
 ```
   git clone -b device-passthrough https://github.com/intel/tdx-linux.git
 ```
+
 * `tdx-kvm` - Contains an mbox file with host side TDX patches for KVM. This can be applied using:
-```
+
+  ```
   git clone -b kvm-coco-queue-20240512 https://git.kernel.org/pub/scm/linux/kernel/git/vishal/kvm.git
   cd ~/nvidia_setup/kvm
   cp -rf ../tdx-linux/tdx-kvm .
