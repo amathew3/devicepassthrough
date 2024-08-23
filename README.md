@@ -199,20 +199,21 @@ example,
     CONFIG_CRYPTO_ECDSA=y
     CONFIG_CRYPTO_ECRDSA=y
     ```
-* `Boot TD with GPU passthrough`
+## Boot TD with GPU passthrough
   * To passthrough the GPU card to TD, say 38:00.0, run the `run_td.sh` script with `-d` as an argument.
     ```
     cd ~/nvidia_setup/tdx/guest_tools
     sudo ./run_td.sh -d
     ```
-* Enabling LKCA on the TDVM
+* `Enabling LKCA on the TDVM`
+
   ```
   vi /etc/modprobe.d/nvidia-lkca.conf
   install nvidia /sbin/modprobe ecdsa_generic; /sbin/modprobe ecdh; /sbin/modprobe --ignore-install nvidia
   update-initramfs -u
   ```
 
-*Install NVIDIA* Driver and CUDA* Toolkit
+* `Install NVIDIA Driver and CUDA Toolkit`
   ```
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
   dpkg -i cuda-keyring_1.1-1_all.deb 
