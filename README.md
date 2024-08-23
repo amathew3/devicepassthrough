@@ -18,6 +18,8 @@ use case.
 ## Host setup for device passthrough
 * This guide assume the host machine is already setup with [wiki](https://github.com/canonical/tdx.git).
   Complete the steps till `https://github.com/canonical/tdx#44-verify-intel-tdx-is-enabled-on-host-os`.
+
+
   ```
   mkdir ~/nvidia_setup
   git config --global user.email youremail@yourdomain.com
@@ -205,7 +207,7 @@ example,
     sudo ./run_td.sh -d
     ```
 * If you are login as normal user, use `sudo` for all the commands need `root` privilage
-* `Enabling LKCA on the TDVM`
+### Enabling LKCA on the TDVM
 
   ```
   vi /etc/modprobe.d/nvidia-lkca.conf
@@ -213,7 +215,7 @@ example,
   update-initramfs -u
   ```
 
-* `Install NVIDIA Driver and CUDA Toolkit`
+### Install NVIDIA Driver and CUDA Toolkit
  + Setup proxy inside TDVM, if the environment is behind a proxy
   ```
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
