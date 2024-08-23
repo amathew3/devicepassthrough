@@ -205,3 +205,53 @@ example,
     cd ~/nvidia_setup/tdx/guest_tools
     sudo ./run_td.sh -d
     ```
+* Enabling LKCA on the TDVM
+  ```
+  vi /etc/modprobe.d/nvidia-lkca.conf
+  install nvidia /sbin/modprobe ecdsa_generic; /sbin/modprobe ecdh; /sbin/modprobe --ignore-install nvidia
+  update-initramfs -u
+  ```
+
+*Install NVIDIA* Driver and CUDA* Toolkit
+  ```
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+  dpkg -i cuda-keyring_1.1-1_all.deb 
+  apt-get update
+  apt-get -y install cuda-toolkit-12-5
+  apt install -y nvidia-driver-550-server-open
+  ```
+* After successful installation for nvidia driver, check whether `nvidia-persistenced` is running
+  ```
+  ps -aux | grep nvidia-persistenced
+  ```
+* Modify the service that automatically launches nvidia-persistenced
+  ```
+  vi /usr/lib/systemd/system/nvidia-persistenced.service
+  # Change:
+  ExecStart=/usr/bin/nvidia-persistenced --user nvidia-persistenced --no-persistence-mode --verbose
+  # to this:
+  ExecStart=/usr/bin/nvidia-persistenced --user nvidia-persistenced --uvm-persistence-mode --verbose
+  ```
+* Tell systemd to reload its modules, and reboot the guest
+  ```
+  systemctl daemon-reload
+  reboot
+  ```
+* Validating State and Versions
+  + Checking GPU CC mode status
+  ```
+  nvidia-smi conf-compute -f
+  ```
+  + Checking VBIOS version, Minimum version needed is `96.00.5E.00.00`
+  ```
+   nvidia-smi -q | grep VBIOS
+  ```
+  + Checking  GPU Ready state
+  ```
+  nvidia-smi conf-compute -grs
+  ```
+  + Changing GPU to ready state
+  ```
+  nvidia-smi conf-compute -srs 1
+  ```
+  Now the guest VM is ready to operate in CC mode with secured H100 accelerator.
