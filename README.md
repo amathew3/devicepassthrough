@@ -16,7 +16,8 @@ by your chosen Linux distribution provider before using them for any production
 use case.
 
 ## Host setup for device passthrough
-* This guide assume the host machine is already setup with [wiki](https://github.com/canonical/tdx.git)
+* This guide assume the host machine is already setup with [wiki](https://github.com/canonical/tdx.git).
+  Complete the steps till `https://github.com/canonical/tdx#44-verify-intel-tdx-is-enabled-on-host-os`.
   ```
   mkdir ~/nvidia_setup
   git config --global user.email youremail@yourdomain.com
@@ -41,6 +42,7 @@ use case.
   ```
   git clone -b kvm-coco-queue-20240512 https://git.kernel.org/pub/scm/linux/kernel/git/vishal/kvm.git
   cd ~/nvidia_setup/kvm
+  git checkout -b 07082024 origin/kvm-coco-queue-20240807
   cp -rf ../tdx-linux/tdx-kvm .
   git am --empty=drop tdx-kvm/tdx_kvm_baseline_<sha>.mbox
   ```
@@ -58,7 +60,7 @@ example,
   git clone https://gitlab.com/qemu-project/qemu
   cd qemu
   git checkout -b rc0 v9.1.0-rc0
-  cp -rf ../tdx-qemu .
+  cp -rf ../tdx-linux/tdx-qemu .
   git am --empty=drop tdx-qemu/tdx_qemu_baseline_<sha>.mbox
   ```
   The baseline for these should be found in [qemu.git](https://git.qemu.org/git/qemu.git).
@@ -69,7 +71,7 @@ example,
 ### Installing the packages needed for kernel build.
 ```
   sudo apt update
-  sudo apt install build-essential libncurses-dev bison flex libssl-dev libelf-dev debhelper-compat=12 meson ninja-build \ 
+  sudo apt install -y build-essential libncurses-dev bison flex libssl-dev libelf-dev debhelper-compat=12 meson ninja-build \ 
   libglib2.0-dev python3-pip nasm iasl
   cd ~/nvidia_setup/kvm
   make menuconfig
@@ -97,8 +99,9 @@ example,
     make modules -j$(nproc)
     sudo make modules_install 
     sudo make install
-    sudo sh -c “echo options kvm_intel tdx=on > /etc/modprobe.d/tdx.conf”
-    sudo grubby --update-kernel=ALL --args="console=ttyS0,115200 kvm_intel.tdx=on nohibernate"
+    MID=$(sudo awk '/Advanced options for Ubuntu/{print $(NF-1)}' /boot/grub/grub.cfg | cut -d\' -f2)
+    KID=$(sudo awk "/with Linux $KERNELVER/"'{print $(NF-1)}' /boot/grub/grub.cfg | cut -d\' -f2 | head -n1)
+    sudo grub-editenv /boot/grub/grubenv set saved_entry="${MID}>${KID}"
     sudo update-grub
     ```
 
@@ -118,7 +121,7 @@ example,
     cd ~/nvidia_setup
     git clone -b edk2-stable202405 https://github.com/tianocore/edk2
     cd edk2
-    git submodule update –init
+    git submodule update --init
     ```
 + Copy the below content to a file `build_ovmf.sh`
     ```
@@ -151,10 +154,17 @@ example,
    ./build_ovmf.sh
    sudo reboot
   ```
++ Check the system booted up with newly built kernel.
+  ```
+  uname -r
+  # Expected result
+  6.10.0-rc7+
+  ```
 ### Libvirt cofiguration for using the newly built qemu.
 
 + Apply the following settings to the file /etc/libvirt/qemu.conf
 ```
+ sudo vi /etc/libvirt/qemu.conf
  user = <your_user_name>
  group = <your_group>
  dynamic_ownership = 0
@@ -162,10 +172,13 @@ example,
 ```
 + Restart the libvirtd service.
 ```
+  sudo aa-teardown /usr/sbin/libvirtd
   systemctl restart libvirtd
 ```
 ## Enabling CC mode on GPU.
 ```
+  cd ~/nvidia_setup
+  git clone https://github.com/NVIDIA/nvtrust.git
   cd ~/nvidia_setup/nvtrust 
   git submodule update --init 
   cd host_tools/python
@@ -182,29 +195,16 @@ example,
 
 * Follow the steps mentioned in [wiki](https://github.com/canonical/tdx/blob/noble-24.04/README.md) to prepare a guest image.
 ```
-  cd ~/nvidia_setup/tdx/guest_tools/images
+  cd ~/nvidia_setup/tdx/guest_tools/image
   sudo ./create-td-image.sh
 ```
-
-* Additional notes on Host and Guest setup and booting can be found in the [wiki](https://github.com/intel/tdx-linux/wiki/Instruction-to-set-up-TDX-host-and-guest). One thing not mentioned on the wiki: make sure TDX guest has **"clearcpuid=mtrr"** in its kernel command line.
-
-
-## Specific notes for device passthrough to TD
-* `Host and Guest Kernel`
-  * Prepare host, guest kernel and qemu according to the above info.
-  * For guest kernel to support SPDM session establishment make sure the following configuration options are enabled.
-    ```
-    CONFIG_CRYPTO_ECC=y
-    CONFIG_CRYPTO_ECDH=y
-    CONFIG_CRYPTO_ECDSA=y
-    CONFIG_CRYPTO_ECRDSA=y
-    ```
 ## Boot TD with GPU passthrough
   * To passthrough the GPU card to TD, say 38:00.0, run the `run_td.sh` script with `-d` as an argument.
     ```
-    cd ~/nvidia_setup/tdx/guest_tools
+    cd ~/nvidia_setup/tdx/guest-tools/
     sudo ./run_td.sh -d
     ```
+* If you are login as normal user, use `sudo` for all the commands need `root` privilage
 * `Enabling LKCA on the TDVM`
 
   ```
@@ -214,14 +214,16 @@ example,
   ```
 
 * `Install NVIDIA Driver and CUDA Toolkit`
+ + Setup proxy inside TDVM, if the environment is behind a proxy
   ```
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
   dpkg -i cuda-keyring_1.1-1_all.deb 
   apt-get update
   apt-get -y install cuda-toolkit-12-5
   apt install -y nvidia-driver-550-server-open
+  reboot
   ```
-* After successful installation for nvidia driver, check whether `nvidia-persistenced` is running
+* After successful installation for nvidia driver and reboot, check whether `nvidia-persistenced` is running
   ```
   ps -aux | grep nvidia-persistenced
   ```
